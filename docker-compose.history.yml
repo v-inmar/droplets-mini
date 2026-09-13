@@ -1,0 +1,21 @@
+services:
+  history:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.history
+
+    env_file:
+      - ./history/.docker.env
+
+    
+    networks:
+      - history_network
+      - event_network
+
+
+networks:
+  history_network:
+    external: true
+
+  event_network:
+    external: true
