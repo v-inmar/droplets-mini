@@ -1,0 +1,27 @@
+services:
+  todo:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.todo
+    container_name: droplets_todo
+    
+    env_file:
+      - ./services/todo/.docker.env
+    # ports:
+    #   - "5501:5501"
+    
+    networks:
+      - event_network
+      - gateway_network
+      - tododb_network
+
+
+
+networks:
+  gateway_network:
+    external: true
+  tododb_network:
+    external: true
+  event_network:
+    external: true
+

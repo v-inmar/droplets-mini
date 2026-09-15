@@ -2,7 +2,10 @@ EVENT_NETWORK := event_network
 APP_NETWORK := app_network
 HISTORY_NETWORK := history_network
 
-.PHONY: network nats appdb historydb app history down clean
+GATEWAY_NETWORK := gateway_network
+TODODB_NETWORK := tododb_network
+
+.PHONY: network nats appdb historydb app history down clean webup webdown webclean
 
 network:
 	docker network inspect $(EVENT_NETWORK) >/dev/null 2>&1 || docker network create $(EVENT_NETWORK)
@@ -35,6 +38,29 @@ clean: down
 	docker compose -f docker-compose.app.yml build --no-cache
 	docker compose -f docker-compose.history.yml build --no-cache
 	docker network rm $(EVENT_NETWORK) $(APP_NETWORK) $(HISTORY_NETWORK) 2>/dev/null || true
+
+webup:
+	docker network inspect $(EVENT_NETWORK) >/dev/null 2>&1 || docker network create $(EVENT_NETWORK)
+	docker network inspect $(GATEWAY_NETWORK) >/dev/null 2>&1 || docker network create $(GATEWAY_NETWORK)
+	docker network inspect $(TODODB_NETWORK) >/dev/null 2>&1 || docker network create $(TODODB_NETWORK)
+	docker compose -f docker-compose.kafka.yml up -d
+	docker compose -f docker-compose.todo-db.yml up -d
+	docker compose -f docker-compose.todo.yml up -d
+	docker compose -f docker-compose.gateway.yml up
+
+webdown:
+	docker compose -f docker-compose.gateway.yml down
+	docker compose -f docker-compose.todo.yml down
+	docker compose -f docker-compose.todo-db.yml down
+	docker compose -f docker-compose.kafka.yml down
+
+webclean: webdown
+	docker compose -f docker-compose.todo.yml build --no-cache
+	docker compose -f docker-compose.gateway.yml build --no-cache
+	docker network rm $(GATEWAY_NETWORK) 2>/dev/null || true
+	docker network rm $(TODODB_NETWORK) 2>/dev/null || true
+	docker network rm $(EVENT_NETWORK) 2>/dev/null || true
+
 
 
 

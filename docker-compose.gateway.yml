@@ -1,0 +1,19 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.gateway
+    container_name: droplets_gateway
+    env_file:
+      - ./services/gateway/.docker.env
+    ports:
+      - "5500:5500"
+    networks:
+      - gateway_network
+
+
+
+networks:
+  gateway_network:
+    external: true
+
