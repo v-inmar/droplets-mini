@@ -5,7 +5,7 @@ HISTORY_NETWORK := history_network
 GATEWAY_NETWORK := gateway_network
 TODODB_NETWORK := tododb_network
 
-.PHONY: network nats appdb historydb app history down clean webup webdown webclean
+.PHONY: network nats appdb historydb app history down clean webup webdown webclean webnetwork webpers webtodo webgateway
 
 network:
 	docker network inspect $(EVENT_NETWORK) >/dev/null 2>&1 || docker network create $(EVENT_NETWORK)
@@ -60,6 +60,27 @@ webclean: webdown
 	docker network rm $(GATEWAY_NETWORK) 2>/dev/null || true
 	docker network rm $(TODODB_NETWORK) 2>/dev/null || true
 	docker network rm $(EVENT_NETWORK) 2>/dev/null || true
+
+webnetwork:
+	docker network inspect $(EVENT_NETWORK) >/dev/null 2>&1 || docker network create $(EVENT_NETWORK)
+	docker network inspect $(GATEWAY_NETWORK) >/dev/null 2>&1 || docker network create $(GATEWAY_NETWORK)
+	docker network inspect $(TODODB_NETWORK) >/dev/null 2>&1 || docker network create $(TODODB_NETWORK)
+
+webpers:
+	docker compose -f docker-compose.kafka.yml up -d
+	docker compose -f docker-compose.todo-db.yml up -d
+
+webtodo:
+	docker compose -f docker-compose.todo.yml up
+
+webgateway:
+	docker compose -f docker-compose.gateway.yml up
+
+
+
+
+
+
 
 
 

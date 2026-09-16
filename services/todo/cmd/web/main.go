@@ -4,6 +4,7 @@ import (
 	"context"
 	"droplets_mini/pkg/database"
 	"droplets_mini/services/todo/internal/handler"
+	"droplets_mini/services/todo/internal/service"
 	"fmt"
 	"log"
 	"net/http"
@@ -40,9 +41,13 @@ func main() {
 	router := chi.NewRouter()
 
 	// handlers
-	handler := handler.NewHandlerRepo(db)
+	handler := handler.NewHandlerRepo(db, service.NewTaskService(db, ctx))
 
 	router.Get("/health", handler.HealthCheckHandler)
+	router.Post("/tasks", handler.PostHandler)
+	router.Get("/tasks", handler.GetAllHandler)
+	router.Put("/tasks/{pid}", handler.PutHandler)
+	router.Delete("/tasks/{pid}", handler.DeleteHandler)
 
 	log.Print("[Todo] service up and running...\n")
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), router); err != nil {
