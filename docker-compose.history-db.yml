@@ -1,20 +1,19 @@
 services:
-
-  
-  db_history:
+  dbhistory:
     image: postgres:16
+    container_name: droplets_history_postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: droplet_historydb
-    ports:
-      - "5433:5432" # - note: host port is changed to not have conflict with the other docker-compose
+      POSTGRES_DB: history_db
+    # ports:
+    #   - "6601:5432" # - note: host port is changed to not have conflict with the other docker-compose
 
     
     networks:
-      - history_network
+      - historydb_network
 
 
 networks:
-  history_network:
+  historydb_network:
     external: true

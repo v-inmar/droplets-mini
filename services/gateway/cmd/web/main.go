@@ -26,12 +26,24 @@ func main() {
 	todo := os.Getenv("TODO_URL")
 	todoURL, err := url.Parse(todo)
 	if err != nil {
-		log.Fatalf("[Gateway] %v", err)
-	}
-	serviceCheck(ctx, todo, "todo")
+		log.Printf("[Gateway] todo service error: %v", err)
+	} else {
+		serviceCheck(ctx, todo, "todo")
 
-	todoProxy := httputil.NewSingleHostReverseProxy(todoURL)
-	proxyRoute(router, "/v1/todo", todoProxy)
+		todoProxy := httputil.NewSingleHostReverseProxy(todoURL)
+		proxyRoute(router, "/v1/todo", todoProxy)
+	}
+
+	// history service
+	history := os.Getenv("HISTORY_URL")
+	historyURL, err := url.Parse(history)
+	if err != nil {
+		log.Printf("[Gateway] history service error: %v", err)
+	} else {
+		serviceCheck(ctx, history, "history")
+		historyProxy := httputil.NewSingleHostReverseProxy(historyURL)
+		proxyRoute(router, "/v1/history", historyProxy)
+	}
 
 	log.Print("[Gateway] up and running...")
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), router); err != nil {
