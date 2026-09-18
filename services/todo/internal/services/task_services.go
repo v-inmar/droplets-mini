@@ -2,15 +2,19 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	dbrepo "droplets_mini/services/todo/internal/db_repo"
 	dtomodels "droplets_mini/services/todo/internal/models/dto_models"
+	"errors"
 	"fmt"
 	"time"
 )
 
 type TaskServiceRoot interface {
 	CreateNewTaskItem(ctx context.Context, reqDto *dtomodels.CreateRequest) (*dtomodels.CreateResponse, error)
-	ReadAllTasks() (*dtomodels.GetAllResponse, error)
+	ReadAllTasks(ctx context.Context) (*dtomodels.GetAllResponse, error)
+	ReadTaskByPID(ctx context.Context, pid string) (*dtomodels.GetTaskResponse, error)
+	UpdateTask(ctx context.Context, task *dtomodels.UpdateRequest, pid string) (*dtomodels.UpdateResponse, error)
 }
 
 type TaskService struct {
@@ -52,6 +56,68 @@ func (s *TaskService) CreateNewTaskItem(ctx context.Context, reqDto *dtomodels.C
 	}, nil
 }
 
-func (s *TaskService) ReadAllTasks() (*dtomodels.GetAllResponse, error) {
-	return nil, nil
+func (s *TaskService) ReadAllTasks(ctx context.Context) (*dtomodels.GetAllResponse, error) {
+	taskModels, err := s.repo.ReadAll(ctx)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+
+	taskLists := []dtomodels.GetTaskResponse{}
+
+	for _, t := range taskModels {
+		taskLists = append(taskLists, dtomodels.GetTaskResponse{
+			PID:       t.PID,
+			Value:     t.Value,
+			Completed: t.Completed,
+			CreatedAt: t.CreatedAt,
+		})
+	}
+
+	all := dtomodels.GetAllResponse{
+		Tasks: taskLists,
+	}
+
+	return &all, nil
+}
+
+func (s *TaskService) ReadTaskByPID(ctx context.Context, pid string) (*dtomodels.GetTaskResponse, error) {
+	taskModel, err := s.repo.ReadByPID(ctx, pid)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dtomodels.GetTaskResponse{
+		PID:       taskModel.PID,
+		Value:     taskModel.Value,
+		Completed: taskModel.Completed,
+		CreatedAt: taskModel.CreatedAt,
+	}, nil
+}
+
+func (s *TaskService) UpdateTask(ctx context.Context, task *dtomodels.UpdateRequest, pid string) (*dtomodels.UpdateResponse, error) {
+	db := s.repo.GetDBInstance()
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	taskModel, err := s.repo.UpdateTx(ctx, tx, task.Value, pid, task.Completed)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: publish to event
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return &dtomodels.UpdateResponse{
+		PID:       taskModel.PID,
+		Value:     taskModel.Value,
+		CreatedAt: taskModel.CreatedAt,
+		Completed: taskModel.Completed,
+	}, nil
+
 }
