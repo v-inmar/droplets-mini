@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"droplets_mini/pkg/database"
-	"droplets_mini/services/todo/internal/handler"
-	"droplets_mini/services/todo/internal/service"
+	dbrepo "droplets_mini/services/todo/internal/db_repo"
+	"droplets_mini/services/todo/internal/handlers"
+	"droplets_mini/services/todo/internal/services"
 	"fmt"
 	"log"
 	"net/http"
@@ -41,13 +42,25 @@ func main() {
 	router := chi.NewRouter()
 
 	// handlers
-	handler := handler.NewHandlerRepo(db, service.NewTaskService(db, ctx))
+	// handler := handler.NewHandlerRepo(db, service.NewTaskService(db, ctx))
 
-	router.Get("/health", handler.HealthCheckHandler)
-	router.Post("/tasks", handler.PostHandler)
-	router.Get("/tasks", handler.GetAllHandler)
-	router.Put("/tasks/{pid}", handler.PutHandler)
-	router.Delete("/tasks/{pid}", handler.DeleteHandler)
+	// router.Get("/health", handler.HealthCheckHandler)
+	// router.Post("/tasks", handler.PostHandler)
+	// router.Get("/tasks", handler.GetAllHandler)
+	// router.Put("/tasks/{pid}", handler.PutHandler)
+	// router.Delete("/tasks/{pid}", handler.DeleteHandler)
+
+	healthHandler := handlers.NewHealthHandler(
+		services.NewHealthService(),
+	)
+	router.Get("/health", healthHandler.GetHealthHandler)
+
+	todoHandler := handlers.NewTodoHandler(
+		services.NewTaskService(
+			dbrepo.NewPostgresTaskDBRepo(db),
+		),
+	)
+	router.Post("/tasks", todoHandler.PostCreateTask)
 
 	log.Print("[Todo] service up and running...\n")
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), router); err != nil {
