@@ -2,13 +2,13 @@ services:
   history:
     build:
       context: .
-      dockerfile: docker/Dockerfile.history
+      dockerfile: Dockerfile
     container_name: droplets_history
     
     env_file:
-      - ./services/history/.docker.env
-    # ports:
-    #   - "5501:5501"
+      - .docker.env
+    ports:
+      - "5502:5502"
     
     networks:
       - event_network
@@ -24,4 +24,3 @@ networks:
     external: true
   event_network:
     external: true
-

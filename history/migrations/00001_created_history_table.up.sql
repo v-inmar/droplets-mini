@@ -1,9 +1,0 @@
-CREATE TABLE IF NOT EXISTS history_model (
-    id BIGSERIAL PRIMARY KEY,
-    event Text NOT NULL,
-    todo_value TEXT NOT NULL,
-    todo_id BIGINT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-

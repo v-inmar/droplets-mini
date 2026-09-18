@@ -2,10 +2,10 @@ services:
   gateway:
     build:
       context: .
-      dockerfile: docker/Dockerfile.gateway
+      dockerfile: Dockerfile
     container_name: droplets_gateway
     env_file:
-      - ./services/gateway/.docker.env
+      - .docker.env
     ports:
       - "5500:5500"
     networks:

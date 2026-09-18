@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	dtomodels "droplets_mini/services/history/internal/models/dto_models"
-	"droplets_mini/services/history/internal/services"
-	"droplets_mini/services/history/internal/utils"
+	dtomodels "droplets_mini_historyservice/internal/models/dto_models"
+	"droplets_mini_historyservice/internal/services"
+	"droplets_mini_historyservice/internal/utils"
 	"log"
 	"net/http"
 )

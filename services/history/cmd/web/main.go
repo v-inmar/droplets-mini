@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"droplets_mini/pkg/database"
-	dbrepo "droplets_mini/services/history/internal/db_repo"
-	"droplets_mini/services/history/internal/handlers"
-	"droplets_mini/services/history/internal/services"
+	dbrepo "droplets_mini_historyservice/internal/db_repo"
+	"droplets_mini_historyservice/internal/handlers"
+	"droplets_mini_historyservice/internal/services"
+	"droplets_mini_historyservice/internal/utils"
 	"fmt"
 	"log"
 	"net/http"
@@ -21,7 +21,7 @@ func main() {
 	_ = godotenv.Load("services/history/.env")
 
 	// -------- postgres -------- //
-	dbServer := database.NewPostgresDB(os.Getenv("DSN"))
+	dbServer := utils.NewPostgresDB(os.Getenv("DSN"))
 	db, err := dbServer.Connect(ctx)
 	if err != nil {
 		log.Fatalf("[History] unable to connect to database: %v\n", err)
@@ -31,8 +31,7 @@ func main() {
 
 	// ----- migrate ---------- //
 	log.Printf("[History] migrating database models")
-	migrateSrc := fmt.Sprintf("file://%s", os.Getenv("MIGRATION_SRC"))
-	pm := database.NewPostgresMigrate(migrateSrc, os.Getenv("DSN"))
+	pm := utils.NewPostgresMigrate("file://migrations", os.Getenv("DSN"))
 	if err := pm.Run(); err != nil {
 		log.Fatalf("[History] error while migrating: %v", err)
 	}

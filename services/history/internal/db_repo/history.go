@@ -2,7 +2,7 @@ package dbrepo
 
 import (
 	"context"
-	dbmodels "droplets_mini/services/history/internal/models/db_models"
+	dbmodels "droplets_mini_historyservice/internal/models/db_models"
 
 	"github.com/jmoiron/sqlx"
 )

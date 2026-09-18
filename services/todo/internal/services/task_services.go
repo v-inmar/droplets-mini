@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 	"database/sql"
-	dbrepo "droplets_mini/services/todo/internal/db_repo"
-	dtomodels "droplets_mini/services/todo/internal/models/dto_models"
+	dbrepo "droplets_mini_todoservice/internal/db_repo"
+	dtomodels "droplets_mini_todoservice/internal/models/dto_models"
 	"errors"
 	"fmt"
 	"time"

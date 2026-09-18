@@ -2,13 +2,13 @@ services:
   todo:
     build:
       context: .
-      dockerfile: docker/Dockerfile.todo
+      dockerfile: Dockerfile
     container_name: droplets_todo
     
     env_file:
-      - ./services/todo/.docker.env
-    # ports:
-    #   - "5501:5501"
+      - .docker.env
+    ports:
+      - "5501:5501"
     
     networks:
       - event_network
@@ -24,4 +24,3 @@ networks:
     external: true
   event_network:
     external: true
-

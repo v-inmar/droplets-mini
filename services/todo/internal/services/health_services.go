@@ -1,7 +1,7 @@
 package services
 
 import (
-	dtomodels "droplets_mini/services/todo/internal/models/dto_models"
+	dtomodels "droplets_mini_todoservice/internal/models/dto_models"
 	"net/http"
 	"time"
 )

@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 	"database/sql"
-	dbrepo "droplets_mini/services/history/internal/db_repo"
-	dtomodels "droplets_mini/services/history/internal/models/dto_models"
+	dbrepo "droplets_mini_historyservice/internal/db_repo"
+	dtomodels "droplets_mini_historyservice/internal/models/dto_models"
 	"errors"
 )
 

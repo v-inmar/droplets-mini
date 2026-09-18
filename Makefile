@@ -3,54 +3,59 @@ TODODB_NETWORK := tododb_network
 EVENT_NETWORK := event_network
 HISTORYDB_NETWORK := historydb_network
 
-.PHONY: webup webdown webclean webnetwork webstorage webtodo webgateway webhistory
+.PHONY: webup-network webup-storage webup-todo webup-history webup-gateway webup webdown webstatus webclean
 
+# -- Individual / multi-terminal --
 
-
-webdown:
-	docker compose -f docker-compose.gateway.yml down
-	docker compose -f docker-compose.todo.yml down
-	docker compose -f docker-compose.todo-db.yml down
-	docker compose -f docker-compose.history.yml down
-	docker compose -f docker-compose.history-db.yml down
-	docker compose -f docker-compose.kafka.yml down
-
-webclean: webdown
-	docker compose -f docker-compose.history.yml build --no-cache
-	docker compose -f docker-compose.todo.yml build --no-cache
-	docker compose -f docker-compose.gateway.yml build --no-cache
-	docker network rm $(GATEWAY_NETWORK) 2>/dev/null || true
-	docker network rm $(TODODB_NETWORK) 2>/dev/null || true
-	docker network rm $(EVENT_NETWORK) 2>/dev/null || true
-	docker network rm $(HISTORYDB_NETWORK) 2>/dev/null || true
-
-webnetwork:
+webup-network:
 	docker network inspect $(EVENT_NETWORK) >/dev/null 2>&1 || docker network create $(EVENT_NETWORK)
 	docker network inspect $(GATEWAY_NETWORK) >/dev/null 2>&1 || docker network create $(GATEWAY_NETWORK)
 	docker network inspect $(TODODB_NETWORK) >/dev/null 2>&1 || docker network create $(TODODB_NETWORK)
 	docker network inspect $(HISTORYDB_NETWORK) >/dev/null 2>&1 || docker network create $(HISTORYDB_NETWORK)
 
-webstorage:
-	docker compose -f docker-compose.kafka.yml up -d
-	docker compose -f docker-compose.todo-db.yml up -d
-	docker compose -f docker-compose.history-db.yml up -d
+webup-storage:
+	docker compose -f docker-compose.storage.yml up
 
-webhistory:
-	docker compose -f docker-compose.history.yml up
+webup-todo:
+	docker compose -f services/todo/docker-compose.yml build --no-cache
+	docker compose -f services/todo/docker-compose.yml up
 
-webtodo:
-	docker compose -f docker-compose.todo.yml up
+webup-history:
+	docker compose -f services/history/docker-compose.yml build --no-cache
+	docker compose -f services/history/docker-compose.yml up
 
-webgateway:
-	docker compose -f docker-compose.gateway.yml up
+webup-gateway:
+	docker compose -f services/gateway/docker-compose.yml build --no-cache
+	docker compose -f services/gateway/docker-compose.yml up
 
+# -- Single-terminal --
 
-webup: webnetwork webstorage
-	docker compose -f docker-compose.history.yml up -d
-	docker compose -f docker-compose.todo.yml up -d
-	docker compose -f docker-compose.gateway.yml up
+webup: webup-network
+	docker compose -f docker-compose.storage.yml up -d
+	docker compose -f services/todo/docker-compose.yml build --no-cache
+	docker compose -f services/todo/docker-compose.yml up -d
+	docker compose -f services/history/docker-compose.yml build --no-cache
+	docker compose -f services/history/docker-compose.yml up -d
+	docker compose -f services/gateway/docker-compose.yml build --no-cache
+	docker compose -f services/gateway/docker-compose.yml up -d
 
+webdown:
+	docker compose -f services/gateway/docker-compose.yml down
+	docker compose -f services/history/docker-compose.yml down
+	docker compose -f services/todo/docker-compose.yml down
+	docker compose -f docker-compose.storage.yml down
 
+webstatus:
+	docker compose -f docker-compose.storage.yml ps
+	docker compose -f services/todo/docker-compose.yml ps
+	docker compose -f services/history/docker-compose.yml ps
+	docker compose -f services/gateway/docker-compose.yml ps
 
-
-
+webclean: webdown
+	docker compose -f services/todo/docker-compose.yml down --rmi local
+	docker compose -f services/history/docker-compose.yml down --rmi local
+	docker compose -f services/gateway/docker-compose.yml down --rmi local
+	docker network rm $(EVENT_NETWORK) 2>/dev/null || true
+	docker network rm $(GATEWAY_NETWORK) 2>/dev/null || true
+	docker network rm $(TODODB_NETWORK) 2>/dev/null || true
+	docker network rm $(HISTORYDB_NETWORK) 2>/dev/null || true
