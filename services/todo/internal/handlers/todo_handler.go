@@ -181,7 +181,7 @@ func (h *TodoHandler) PutUpdateTaskHandler(w http.ResponseWriter, r *http.Reques
 		}
 
 		if err := utils.ResponseJSON(w, body, http.StatusInternalServerError, nil); err != nil {
-			log.Printf("[Todo] responding internal server error while readin task by pid: %v", err)
+			log.Printf("[Todo] responding internal server error while reading task by pid:%s error: %v", pidParam, err)
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
@@ -190,6 +190,61 @@ func (h *TodoHandler) PutUpdateTaskHandler(w http.ResponseWriter, r *http.Reques
 
 	if err := utils.ResponseJSON(w, taskResp, http.StatusOK, nil); err != nil {
 		log.Printf("[Todo] error responding to successful update: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *TodoHandler) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
+	pidParam := chi.URLParam(r, "pid")
+
+	_, err := h.srvc.ReadTaskByPID(r.Context(), pidParam)
+	if err != nil && errors.Is(err, sql.ErrNoRows) {
+		body := dtomodels.ErrorResponse{
+			Message: fmt.Sprintf("task with pid %s not found", pidParam),
+			Status:  http.StatusNotFound,
+		}
+
+		if err := utils.ResponseJSON(w, body, http.StatusNotFound, nil); err != nil {
+			log.Printf("[Todo] responding to task not found: %v", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	if err != nil {
+		log.Printf("[Todo] failed reading task by pid: %s error: %v", pidParam, err)
+		body := dtomodels.ErrorResponse{
+			Message: "internal server error",
+			Status:  http.StatusInternalServerError,
+		}
+
+		if err := utils.ResponseJSON(w, body, http.StatusInternalServerError, nil); err != nil {
+			log.Printf("[Todo] responding internal server error while reading task by pid: %v", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	if err := h.srvc.DeleteTask(r.Context(), pidParam); err != nil {
+		log.Printf("[Todo] failed service deleting task by pid: %s error: %v", pidParam, err)
+		body := dtomodels.ErrorResponse{
+			Message: "internal server error",
+			Status:  http.StatusInternalServerError,
+		}
+
+		if err := utils.ResponseJSON(w, body, http.StatusInternalServerError, nil); err != nil {
+			log.Printf("[Todo] responding internal server error while failed service deleting by pid:%s  error:%v", pidParam, err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	if err := utils.ResponseJSON(w, nil, http.StatusNoContent, nil); err != nil {
+		log.Printf("[Todo] responding to deleting task success: %v", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}

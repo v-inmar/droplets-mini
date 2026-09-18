@@ -63,6 +63,7 @@ func main() {
 	router.Post("/tasks", todoHandler.PostCreateTaskHandler)
 	router.Get("/tasks", todoHandler.GetAllTaskHandler)
 	router.Put("/tasks/{pid}", todoHandler.PutUpdateTaskHandler)
+	router.Delete("/tasks/{pid}", todoHandler.DeleteTaskHandler)
 
 	log.Print("[Todo] service up and running...\n")
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), router); err != nil {

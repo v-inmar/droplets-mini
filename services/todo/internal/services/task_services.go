@@ -15,6 +15,7 @@ type TaskServiceRoot interface {
 	ReadAllTasks(ctx context.Context) (*dtomodels.GetAllResponse, error)
 	ReadTaskByPID(ctx context.Context, pid string) (*dtomodels.GetTaskResponse, error)
 	UpdateTask(ctx context.Context, task *dtomodels.UpdateRequest, pid string) (*dtomodels.UpdateResponse, error)
+	DeleteTask(ctx context.Context, pid string) error
 }
 
 type TaskService struct {
@@ -120,4 +121,25 @@ func (s *TaskService) UpdateTask(ctx context.Context, task *dtomodels.UpdateRequ
 		Completed: taskModel.Completed,
 	}, nil
 
+}
+
+func (s *TaskService) DeleteTask(ctx context.Context, pid string) error {
+	db := s.repo.GetDBInstance()
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.repo.DeleteTx(ctx, tx, pid); err != nil {
+		return nil
+	}
+
+	// TODO: publish event
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
 }
