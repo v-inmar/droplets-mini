@@ -2,7 +2,7 @@ package repo
 
 import (
 	"context"
-	"droplets_mini/services/todo/internal/models/db"
+	dbmodels "droplets_mini/services/todo/internal/models/db_models"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -18,14 +18,14 @@ func NewTaskRepoTx(tx *sqlx.Tx) *TaskRepoTx {
 }
 
 // Create new task
-func (repo *TaskRepoTx) Create(ctx context.Context, value, pid string) (*db.TaskModel, error) {
+func (repo *TaskRepoTx) Create(ctx context.Context, value, pid string) (*dbmodels.TaskModel, error) {
 	query := `
 	INSERT INTO task_model (value, pid)
 	VALUES ($1, $2)
 	RETURNING id, pid, value, completed, created_at
 	`
 
-	var task db.TaskModel
+	var task dbmodels.TaskModel
 	if err := repo.tx.GetContext(ctx, &task, query, value, pid); err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func (repo *TaskRepoTx) Create(ctx context.Context, value, pid string) (*db.Task
 }
 
 // Update task
-func (repo *TaskRepoTx) Update(ctx context.Context, value, pid string, completed bool) (*db.TaskModel, error) {
+func (repo *TaskRepoTx) Update(ctx context.Context, value, pid string, completed bool) (*dbmodels.TaskModel, error) {
 	query := `
 	UPDATE task_model
 	SET value=$1, completed=$2
@@ -42,7 +42,7 @@ func (repo *TaskRepoTx) Update(ctx context.Context, value, pid string, completed
 	RETURNING id, pid, value, completed, created_at
 	`
 
-	var task db.TaskModel
+	var task dbmodels.TaskModel
 
 	if err := repo.tx.GetContext(ctx, &task, query, value, completed, pid); err != nil {
 		return nil, err
@@ -74,12 +74,12 @@ func NewTaskRepoDB(db *sqlx.DB) *TaskRepoDB {
 }
 
 // Read all tasks
-func (repo *TaskRepoDB) ReadAll(ctx context.Context) ([]db.TaskModel, error) {
+func (repo *TaskRepoDB) ReadAll(ctx context.Context) ([]dbmodels.TaskModel, error) {
 	query := `
 	SELECT * FROM task_model
 	`
 
-	var tasks []db.TaskModel
+	var tasks []dbmodels.TaskModel
 
 	if err := repo.db.SelectContext(ctx, &tasks, query); err != nil {
 		return nil, err
@@ -89,13 +89,13 @@ func (repo *TaskRepoDB) ReadAll(ctx context.Context) ([]db.TaskModel, error) {
 }
 
 // Read task by pid
-func (repo *TaskRepoDB) ReadByPID(ctx context.Context, pid string) (*db.TaskModel, error) {
+func (repo *TaskRepoDB) ReadByPID(ctx context.Context, pid string) (*dbmodels.TaskModel, error) {
 	query := `
 	SELECT * FROM task_model
 	WHERE pid=$1
 	`
 
-	var task db.TaskModel
+	var task dbmodels.TaskModel
 	if err := repo.db.GetContext(ctx, &task, query, pid); err != nil {
 		return nil, err
 	}
