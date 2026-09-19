@@ -132,7 +132,7 @@ func (s *TaskService) DeleteTask(ctx context.Context, pid string) error {
 	defer tx.Rollback()
 
 	if err := s.repo.DeleteTx(ctx, tx, pid); err != nil {
-		return nil
+		return err
 	}
 
 	// TODO: publish event
