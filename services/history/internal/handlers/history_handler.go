@@ -19,7 +19,7 @@ func NewHistoryHandler(srvc services.HistoryServiceRoot) *HistoryHandler {
 }
 
 func (h *HistoryHandler) GetAllHistoryHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("[History] GetAllHistoryHandler")
+
 	respBody, err := h.srvc.GetAllHistory(r.Context())
 	if err != nil {
 		log.Printf("[History] error getting response body from history service: %v", err)
