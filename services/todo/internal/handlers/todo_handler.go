@@ -110,7 +110,7 @@ func (h *TodoHandler) GetAllTaskHandler(w http.ResponseWriter, r *http.Request) 
 func (h *TodoHandler) PutUpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	pidParam := chi.URLParam(r, "pid")
 
-	_, err := h.srvc.ReadTaskByPID(r.Context(), pidParam)
+	task, err := h.srvc.ReadTaskByPID(r.Context(), pidParam)
 	if err != nil && errors.Is(err, sql.ErrNoRows) {
 		body := dtomodels.ErrorResponse{
 			Message: fmt.Sprintf("task with pid %s not found", pidParam),
@@ -172,7 +172,7 @@ func (h *TodoHandler) PutUpdateTaskHandler(w http.ResponseWriter, r *http.Reques
 
 	taskUpdate.Value = strings.TrimSpace(taskUpdate.Value)
 
-	taskResp, err := h.srvc.UpdateTask(r.Context(), &taskUpdate, pidParam)
+	taskResp, err := h.srvc.UpdateTask(r.Context(), &taskUpdate, task)
 	if err != nil {
 		log.Printf("[Todo] failed updating task by pid: %s error: %v", pidParam, err)
 		body := dtomodels.ErrorResponse{
@@ -198,7 +198,7 @@ func (h *TodoHandler) PutUpdateTaskHandler(w http.ResponseWriter, r *http.Reques
 func (h *TodoHandler) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	pidParam := chi.URLParam(r, "pid")
 
-	_, err := h.srvc.ReadTaskByPID(r.Context(), pidParam)
+	task, err := h.srvc.ReadTaskByPIDModel(r.Context(), pidParam)
 	if err != nil && errors.Is(err, sql.ErrNoRows) {
 		body := dtomodels.ErrorResponse{
 			Message: fmt.Sprintf("task with pid %s not found", pidParam),
@@ -228,7 +228,7 @@ func (h *TodoHandler) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.srvc.DeleteTask(r.Context(), pidParam); err != nil {
+	if err := h.srvc.DeleteTask(r.Context(), task); err != nil {
 		log.Printf("[Todo] failed service deleting task by pid: %s error: %v", pidParam, err)
 		body := dtomodels.ErrorResponse{
 			Message: "internal server error",

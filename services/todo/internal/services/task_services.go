@@ -3,8 +3,12 @@ package services
 import (
 	"context"
 	"database/sql"
+	"droplets_mini_todoservice/internal/broker"
 	dbrepo "droplets_mini_todoservice/internal/db_repo"
+	dbmodels "droplets_mini_todoservice/internal/models/db_models"
 	dtomodels "droplets_mini_todoservice/internal/models/dto_models"
+	eventmodels "droplets_mini_todoservice/internal/models/event_models"
+	"droplets_mini_todoservice/internal/utils"
 	"errors"
 	"fmt"
 	"time"
@@ -14,17 +18,20 @@ type TaskServiceRoot interface {
 	CreateNewTaskItem(ctx context.Context, reqDto *dtomodels.CreateRequest) (*dtomodels.CreateResponse, error)
 	ReadAllTasks(ctx context.Context) (*dtomodels.GetAllResponse, error)
 	ReadTaskByPID(ctx context.Context, pid string) (*dtomodels.GetTaskResponse, error)
-	UpdateTask(ctx context.Context, task *dtomodels.UpdateRequest, pid string) (*dtomodels.UpdateResponse, error)
-	DeleteTask(ctx context.Context, pid string) error
+	ReadTaskByPIDModel(ctx context.Context, pid string) (*dbmodels.TaskModel, error)
+	UpdateTask(ctx context.Context, taskUpdate *dtomodels.UpdateRequest, task *dtomodels.GetTaskResponse) (*dtomodels.UpdateResponse, error)
+	DeleteTask(ctx context.Context, task *dbmodels.TaskModel) error
 }
 
 type TaskService struct {
-	repo dbrepo.TaskRepo
+	repo   dbrepo.TaskRepo
+	broker broker.Broker
 }
 
-func NewTaskService(repo dbrepo.TaskRepo) *TaskService {
+func NewTaskService(repo dbrepo.TaskRepo, broker broker.Broker) *TaskService {
 	return &TaskService{
-		repo: repo,
+		repo:   repo,
+		broker: broker,
 	}
 }
 
@@ -43,7 +50,21 @@ func (s *TaskService) CreateNewTaskItem(ctx context.Context, reqDto *dtomodels.C
 		return nil, err
 	}
 
-	// TODO: publish event here
+	eventID := time.Now().UTC().UnixNano()
+	eventTaskModel := eventmodels.TaskEventCreated{
+		Event:         utils.TopicTaskCreated,
+		EventID:       eventID,
+		TaskID:        task.ID,
+		TaskValue:     task.Value,
+		TaskPID:       task.PID,
+		TaskCompleted: task.Completed,
+		TaskCreatedAt: task.CreatedAt,
+	}
+
+	key := fmt.Sprintf("tasks-%d", eventID)
+	if err := s.broker.Produce(ctx, eventTaskModel, []byte(key)); err != nil {
+		return nil, err
+	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, err
@@ -95,7 +116,16 @@ func (s *TaskService) ReadTaskByPID(ctx context.Context, pid string) (*dtomodels
 	}, nil
 }
 
-func (s *TaskService) UpdateTask(ctx context.Context, task *dtomodels.UpdateRequest, pid string) (*dtomodels.UpdateResponse, error) {
+func (s *TaskService) ReadTaskByPIDModel(ctx context.Context, pid string) (*dbmodels.TaskModel, error) {
+	taskModel, err := s.repo.ReadByPID(ctx, pid)
+	if err != nil {
+		return nil, err
+	}
+
+	return taskModel, nil
+}
+
+func (s *TaskService) UpdateTask(ctx context.Context, taskUpdate *dtomodels.UpdateRequest, task *dtomodels.GetTaskResponse) (*dtomodels.UpdateResponse, error) {
 	db := s.repo.GetDBInstance()
 	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -103,12 +133,29 @@ func (s *TaskService) UpdateTask(ctx context.Context, task *dtomodels.UpdateRequ
 	}
 	defer tx.Rollback()
 
-	taskModel, err := s.repo.UpdateTx(ctx, tx, task.Value, pid, task.Completed)
+	taskModel, err := s.repo.UpdateTx(ctx, tx, taskUpdate.Value, task.PID, taskUpdate.Completed)
 	if err != nil {
 		return nil, err
 	}
 
 	// TODO: publish to event
+	eventID := time.Now().UTC().UnixNano()
+	eventTaskModel := eventmodels.TaskEventUpdated{
+		Event:            utils.TopicTaskUpdated,
+		EventID:          eventID,
+		OldTaskValue:     task.Value,
+		OldTaskCompleted: task.Completed,
+		TaskID:           taskModel.ID,
+		TaskValue:        taskModel.Value,
+		TaskPID:          taskModel.PID,
+		TaskCompleted:    taskModel.Completed,
+		TaskCreatedAt:    taskModel.CreatedAt,
+	}
+
+	key := fmt.Sprintf("tasks-%d", eventID)
+	if err := s.broker.Produce(ctx, eventTaskModel, []byte(key)); err != nil {
+		return nil, err
+	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, err
@@ -123,7 +170,7 @@ func (s *TaskService) UpdateTask(ctx context.Context, task *dtomodels.UpdateRequ
 
 }
 
-func (s *TaskService) DeleteTask(ctx context.Context, pid string) error {
+func (s *TaskService) DeleteTask(ctx context.Context, task *dbmodels.TaskModel) error {
 	db := s.repo.GetDBInstance()
 	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -131,11 +178,26 @@ func (s *TaskService) DeleteTask(ctx context.Context, pid string) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.repo.DeleteTx(ctx, tx, pid); err != nil {
+	if err := s.repo.DeleteTx(ctx, tx, task.PID); err != nil {
 		return err
 	}
 
 	// TODO: publish event
+	eventID := time.Now().UTC().UnixNano()
+	eventTaskModel := eventmodels.TaskEventDeleted{
+		Event:                utils.TopicTaskDeleted,
+		EventID:              eventID,
+		DeletedTaskID:        task.ID,
+		DeletedTaskValue:     task.Value,
+		DeletedTaskPID:       task.PID,
+		DeletedTaskCompleted: task.Completed,
+		DeletedTaskCreatedAt: task.CreatedAt,
+	}
+
+	key := fmt.Sprintf("tasks-%d", eventID)
+	if err := s.broker.Produce(ctx, eventTaskModel, []byte(key)); err != nil {
+		return err
+	}
 
 	if err := tx.Commit(); err != nil {
 		return err

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"droplets_mini_todoservice/internal/broker"
 	dbrepo "droplets_mini_todoservice/internal/db_repo"
 	"droplets_mini_todoservice/internal/handlers"
 	"droplets_mini_todoservice/internal/services"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/joho/godotenv"
+	"github.com/segmentio/kafka-go"
 )
 
 func main() {
@@ -46,9 +48,26 @@ func main() {
 	)
 	router.Get("/health", healthHandler.GetHealthHandler)
 
+	// kafka settings
+	kafkaBrokerWriter := kafka.Writer{
+		Addr:  kafka.TCP(os.Getenv("KAFKA_BROKERS")),
+		Topic: "tasks",
+	}
+
+	kafkaBrokerReader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers: []string{os.Getenv("KAFKA_BROKERS")},
+		Topic:   "tasks",
+		GroupID: "task-service",
+	})
+
+	kafkaBroker := broker.NewKafkaBroker(&kafkaBrokerWriter, kafkaBrokerReader)
+	defer kafkaBroker.CloseProcuder()
+	defer kafkaBroker.CloseConsumer()
+
 	todoHandler := handlers.NewTodoHandler(
 		services.NewTaskService(
 			dbrepo.NewPostgresTaskDBRepo(db),
+			kafkaBroker,
 		),
 	)
 	router.Post("/tasks", todoHandler.PostCreateTaskHandler)
