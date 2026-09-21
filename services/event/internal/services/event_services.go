@@ -3,11 +3,13 @@ package services
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	dbrepo "droplets_mini_eventservice/internal/db_repo"
 	dbmodels "droplets_mini_eventservice/internal/models/db_models"
 	eventmodels "droplets_mini_eventservice/internal/models/event_models"
 	"droplets_mini_eventservice/internal/utils"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -23,30 +25,40 @@ func NewProcessEventService(repo dbrepo.ProcessedRepo) *ProcessEventService {
 	}
 }
 
-func (s *ProcessEventService) CreateEventProcess(ctx context.Context, e *eventmodels.EventTask) (*dbmodels.EventProcessedModel, error) {
+func (s *ProcessEventService) GetOrCreateEventProcess(ctx context.Context, pid int64) (*dbmodels.EventProcessedModel, error) {
 	tx, err := s.repo.GetDBInstance().BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	model, err := s.repo.CreateTx(ctx, tx, e.EventPID, 1, false)
+	model, err := s.repo.ReadByEventPIDTx(ctx, tx, pid)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
 
+	if model != nil {
+		return model, nil
+	}
+
+	model, err = s.repo.CreateTx(ctx, tx, pid, 0, false)
+	if err != nil {
+		return nil, err
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return model, nil
-
 }
 
-func (s *ProcessEventService) UpdateEventProcess(ctx context.Context, pid int64, retryCount int, processed bool) (*dbmodels.EventProcessedModel, error) {
+func (s *ProcessEventService) UpdateEventProcess(ctx context.Context, epid int64, retry int, processed bool) (*dbmodels.EventProcessedModel, error) {
 	tx, err := s.repo.GetDBInstance().BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	model, err := s.repo.UpdateTx(ctx, tx, pid, retryCount, processed)
+	model, err := s.repo.UpdateTx(ctx, tx, epid, retry, processed)
 	if err != nil {
 		return nil, err
 	}
@@ -54,9 +66,45 @@ func (s *ProcessEventService) UpdateEventProcess(ctx context.Context, pid int64,
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
+
 	return model, nil
 
 }
+
+// func (s *ProcessEventService) CreateEventProcess(ctx context.Context, e *eventmodels.EventTask) (*dbmodels.EventProcessedModel, error) {
+// 	tx, err := s.repo.GetDBInstance().BeginTxx(ctx, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer tx.Rollback()
+
+// 	model, err := s.repo.CreateTx(ctx, tx, e.EventPID, 1, false)
+
+// 	if err := tx.Commit(); err != nil {
+// 		return nil, err
+// 	}
+// 	return model, nil
+
+// }
+
+// func (s *ProcessEventService) UpdateEventProcess(ctx context.Context, pid int64, retryCount int, processed bool) (*dbmodels.EventProcessedModel, error) {
+// 	tx, err := s.repo.GetDBInstance().BeginTxx(ctx, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer tx.Rollback()
+
+// 	model, err := s.repo.UpdateTx(ctx, tx, pid, retryCount, processed)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	if err := tx.Commit(); err != nil {
+// 		return nil, err
+// 	}
+// 	return model, nil
+
+// }
 
 /*
 
@@ -73,7 +121,37 @@ type EventTask struct {
 	TaskCreatedAt  time.Time       `json:"task_created_at"`
 }
 
+
+type HistoryItem struct {
+	ID              int64     `db:"id"`
+	EventPID        int64     `db:"event_pid"`
+	EventHappened   string    `db:"event_happened"`
+	EventHappenedAt time.Time `db:"event_happened_at"`
+	TaskID          int64     `db:"task_id"`
+	TaskValue       string    `db:"task_value"`
+	TaskPID         int64     `db:"task_pid"`
+	CreatedAt       time.Time `db:"created_at"`
+}
+
+eventPID int64, eventHappened string, eventHappenedAt time.Time, taskID int64, taskPID int64, taskValue string
+
 */
+
+// func (s *ProcessEventService) CreateHistoryItem(ctx context.Context, event *eventmodels.EventTask)error{
+// 	var eventHappened string
+// 	switch event.Event {
+// 	case utils.TopicTaskCreated:
+// 		eventHappened = "CREATED"
+// 	case utils.TopicTaskUpdated:
+// 		eventHappened = "UPDATED"
+// 	case utils.TopicTaskDeleted:
+// 		eventHappened = "DELETED"
+// 	default:
+// 		eventHappened = "UNKNOWN"
+// 	}
+
+// 	s.repo
+// }
 
 func (s *ProcessEventService) PostHistoryAPI(ctx context.Context, url string, event eventmodels.EventTask) error {
 	var eventHappened string

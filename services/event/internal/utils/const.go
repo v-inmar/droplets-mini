@@ -7,3 +7,5 @@ const (
 	TopicTaskUpdated EventType = "task.updated"
 	TopicTaskDeleted EventType = "task.deleted"
 )
+
+const MaxRetry = 5

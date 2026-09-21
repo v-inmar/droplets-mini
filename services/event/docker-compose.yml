@@ -1,0 +1,21 @@
+services:
+  event:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: droplets_event
+    
+    env_file:
+      - .docker.env
+    
+    networks:
+      - eventbroker_network
+      - eventdb_network
+
+
+
+networks:
+  eventbroker_network:
+    external: true
+  eventdb_network:
+    external: true
