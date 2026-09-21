@@ -23,11 +23,11 @@ func (s *mockHistoryService) GetAllHistory(ctx context.Context) (*dtomodels.GetA
 
 func TestGetAllHistoryHandler(t *testing.T) {
 	serviceResponse := dtomodels.GetHistoryResponse{
-		EventPID:        "epid123",
+		EventPID:        123456789,
 		EventHappened:   "CREATED",
 		EventHappenedAt: time.Now().UTC(),
 		TaskValue:       "task1",
-		TaskPID:         "tpid123",
+		TaskPID:         987654321,
 	}
 
 	serviceErr := errors.New("service error")
