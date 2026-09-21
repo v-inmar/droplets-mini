@@ -38,6 +38,7 @@ func (s *HistoryService) GetAllHistory(ctx context.Context) (*dtomodels.GetAllHi
 			EventHappenedAt: h.EventHappenedAt,
 			TaskValue:       h.TaskValue,
 			TaskPID:         h.TaskPID,
+			TaskCompleted:   h.TaskCompleted,
 		})
 	}
 

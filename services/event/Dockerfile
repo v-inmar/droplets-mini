@@ -4,7 +4,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /dist ./cmd/web/
+RUN CGO_ENABLED=0 GOOS=linux go build -o /dist ./cmd/cli/
 
 # ----------------------------RUN STAGE ----------------------- #
 FROM ubuntu:24.04

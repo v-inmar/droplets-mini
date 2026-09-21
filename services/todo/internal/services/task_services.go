@@ -11,6 +11,7 @@ import (
 	"droplets_mini_todoservice/internal/utils"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -24,14 +25,14 @@ type TaskServiceRoot interface {
 }
 
 type TaskService struct {
-	repo   dbrepo.TaskRepo
-	broker broker.Broker
+	repo     dbrepo.TaskRepo
+	producer broker.BrokerProducer
 }
 
-func NewTaskService(repo dbrepo.TaskRepo, broker broker.Broker) *TaskService {
+func NewTaskService(repo dbrepo.TaskRepo, producer broker.BrokerProducer) *TaskService {
 	return &TaskService{
-		repo:   repo,
-		broker: broker,
+		repo:     repo,
+		producer: producer,
 	}
 }
 
@@ -63,7 +64,8 @@ func (s *TaskService) CreateNewTaskItem(ctx context.Context, reqDto *dtomodels.C
 	}
 
 	key := fmt.Sprintf("tasks-%d", eventPID)
-	if err := s.broker.Produce(ctx, eventModel, []byte(key)); err != nil {
+	log.Printf("[Todo] inside service, publishing task with key: %s", key)
+	if err := s.producer.Produce(ctx, eventModel, []byte(key)); err != nil {
 		return nil, err
 	}
 
@@ -152,7 +154,7 @@ func (s *TaskService) UpdateTask(ctx context.Context, taskUpdate *dtomodels.Upda
 	}
 
 	key := fmt.Sprintf("tasks-%d", eventPID)
-	if err := s.broker.Produce(ctx, eventModel, []byte(key)); err != nil {
+	if err := s.producer.Produce(ctx, eventModel, []byte(key)); err != nil {
 		return nil, err
 	}
 
@@ -194,7 +196,7 @@ func (s *TaskService) DeleteTask(ctx context.Context, task *dbmodels.TaskModel) 
 	}
 
 	key := fmt.Sprintf("tasks-%d", eventPID)
-	if err := s.broker.Produce(ctx, eventModel, []byte(key)); err != nil {
+	if err := s.producer.Produce(ctx, eventModel, []byte(key)); err != nil {
 		return err
 	}
 

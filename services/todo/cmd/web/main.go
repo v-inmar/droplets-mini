@@ -54,20 +54,22 @@ func main() {
 		Topic: "tasks",
 	}
 
-	kafkaBrokerReader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{os.Getenv("KAFKA_BROKERS")},
-		Topic:   "tasks",
-		GroupID: "task-service",
-	})
+	// kafkaBrokerReader := kafka.NewReader(kafka.ReaderConfig{
+	// 	Brokers: []string{os.Getenv("KAFKA_BROKERS")},
+	// 	Topic:   "tasks",
+	// 	GroupID: "task-service",
+	// })
 
-	kafkaBroker := broker.NewKafkaBroker(&kafkaBrokerWriter, kafkaBrokerReader)
-	defer kafkaBroker.CloseProcuder()
-	defer kafkaBroker.CloseConsumer()
+	// kafkaBroker := broker.NewKafkaBroker(&kafkaBrokerWriter, kafkaBrokerReader)
+	// defer kafkaBroker.CloseProcuder()
+	// defer kafkaBroker.CloseConsumer()
+
+	kafkaProducer := broker.NewKafkaBrokerProducer(&kafkaBrokerWriter)
 
 	todoHandler := handlers.NewTodoHandler(
 		services.NewTaskService(
 			dbrepo.NewPostgresTaskDBRepo(db),
-			kafkaBroker,
+			kafkaProducer,
 		),
 	)
 	router.Post("/tasks", todoHandler.PostCreateTaskHandler)

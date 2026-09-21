@@ -11,3 +11,8 @@ type Broker interface {
 	CloseProcuder() error
 	CloseConsumer() error
 }
+
+type BrokerProducer interface {
+	Produce(ctx context.Context, model eventmodels.EventTask, key []byte) error
+	Close() error
+}

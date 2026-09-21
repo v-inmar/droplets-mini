@@ -45,11 +45,12 @@ func NewKafkaBrokerConsumer(r *kafka.Reader) *KafkaBrokerConsumer {
 }
 
 func (k *KafkaBrokerConsumer) Consume(ctx context.Context) (*kafka.Message, error) {
-	msg, err := k.reader.ReadMessage(ctx)
+	msg, err := k.reader.FetchMessage(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &msg, err
+
+	return &msg, nil
 }
 
 func (k *KafkaBrokerConsumer) Commit(ctx context.Context, msg *kafka.Message) error {

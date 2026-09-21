@@ -9,6 +9,32 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
+type KafkaBrokerProducer struct {
+	writer *kafka.Writer
+}
+
+func NewKafkaBrokerProducer(w *kafka.Writer) *KafkaBrokerProducer {
+	return &KafkaBrokerProducer{
+		writer: w,
+	}
+}
+
+func (k *KafkaBrokerProducer) Produce(ctx context.Context, model eventmodels.EventTask, key []byte) error {
+	data, err := json.Marshal(model)
+	if err != nil {
+		return err
+	}
+
+	return k.writer.WriteMessages(ctx, kafka.Message{
+		Key:   key,
+		Value: data,
+	})
+}
+
+func (k *KafkaBrokerProducer) Close() error {
+	return k.writer.Close()
+}
+
 type KafkaBroker struct {
 	writer *kafka.Writer
 	reader *kafka.Reader

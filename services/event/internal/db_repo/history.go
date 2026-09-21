@@ -34,7 +34,7 @@ func (repo *PostgresHistoryDBRepo) GetDBInstance() *sqlx.DB {
 func (repo *PostgresHistoryDBRepo) CreateTx(ctx context.Context, tx *sqlx.Tx, eventPID int64, eventHappened string, eventHappenedAt time.Time, taskID int64, taskValue string, taskPID int64, taskCompleted bool) (*dbmodels.HistoryItem, error) {
 	query := `
 	INSERT INTO history_model(event_pid, event_happened, event_happened_at, task_id,task_value, task_pid, task_completed)
-	VALUES ($1, $2, $3, $4, $5, $6)
+	VALUES ($1, $2, $3, $4, $5, $6, $7)
 	RETURNING id, event_pid, event_happened, event_happened_at, task_id, task_value, task_pid, task_completed, created_at
 	`
 

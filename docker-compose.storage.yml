@@ -27,13 +27,27 @@ services:
     
     networks:
       - historydb_network
+    
+  
+  dbevent: # no volume - won't presist after shutdown
+    image: postgres:16
+    container_name: droplets_event_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: event_db
+    # ports:
+    #   - "6601:5432" # - note: host port is changed to not have conflict with the other docker-compose
+
+    
+    networks:
+      - eventdb_network
   
 
-  kafka: # no volume - won't presist after shutdown
+  kafka:
     image: apache/kafka:4.3.1
     container_name: droplets_kafka
-    # ports:
-    #   - "9092:9092"
+
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -46,7 +60,51 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
 
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    
+
+    networks:
+      - event_network
+
+
+  kafka-init:
+    image: apache/kafka:4.3.1
+    container_name: droplets_kafka_init
+
+    depends_on:
+      - kafka
+
+    command:
+      - /bin/sh
+      - -c
+      - |
+        echo "Waiting for Kafka..."
+
+        until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1
+        do
+          sleep 1
+        done
+
+        echo "Kafka is ready"
+
+        echo "Creating tasks topic..."
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server kafka:9092 \
+          --create \
+          --if-not-exists \
+          --topic tasks \
+          --partitions 1 \
+          --replication-factor 1
+
+        echo "Creating tasks.dlq topic..."
+        /opt/kafka/bin/kafka-topics.sh \
+          --bootstrap-server kafka:9092 \
+          --create \
+          --if-not-exists \
+          --topic tasks.dlq \
+          --partitions 1 \
+          --replication-factor 1
+
+        echo "Kafka initialization complete"
+
     networks:
       - event_network
 
@@ -57,4 +115,6 @@ networks:
   historydb_network:
     external: true
   event_network:
+    external: true
+  eventdb_network:
     external: true

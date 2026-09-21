@@ -31,7 +31,7 @@ func (repo *PostgresEventProcessedDBRepo) GetDBInstance() *sqlx.DB {
 
 func (repo *PostgresEventProcessedDBRepo) CreateTx(ctx context.Context, tx *sqlx.Tx, event_pid int64, event_retry int, event_processed bool) (*dbmodels.EventProcessedModel, error) {
 	query := `
-	INSERT INTO event_processed_model(event_pid, event_rety, event_processed)
+	INSERT INTO event_processed_model(event_pid, event_retry, event_processed)
 	VALUES ($1, $2, $3)
 	RETURNING id, event_pid, event_retry, event_processed, created_at
 	`

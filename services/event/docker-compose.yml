@@ -9,13 +9,16 @@ services:
       - .docker.env
     
     networks:
-      - eventbroker_network
+      - event_network
       - eventdb_network
+      - historydb_network
 
 
 
 networks:
-  eventbroker_network:
+  event_network:
     external: true
   eventdb_network:
+    external: true
+  historydb_network:
     external: true

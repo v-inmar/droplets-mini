@@ -33,7 +33,8 @@ func main() {
 	dbServer := utils.NewPostgresDB(dsn)
 	db, err := dbServer.Connect(ctx)
 	if err != nil {
-		log.Fatalf("[Event] unable to connect to database server: %s, error: %v", dsn, err)
+		log.Printf("[Event] unable to connect to database server: %s, error: %v", dsn, err)
+		return
 	}
 	defer db.Close()
 	log.Printf("[Event] connected to database server: %s", dsn)
@@ -41,16 +42,34 @@ func main() {
 	log.Printf("[Event] migrating database models...")
 	migrate := utils.NewPostgresMigrate("file://migrations", dsn)
 	if err := migrate.Run(); err != nil {
-		log.Fatalf("[Event] error while migrating to database: %s, error: %v", dsn, err)
+		log.Printf("[Event] error while migrating to database: %s, error: %v", dsn, err)
+		return
 	}
 	log.Print("[Event] migrated successfully")
 
+	log.Printf("[Event] connecting to history database server...")
+	historyDSN := os.Getenv("HISTORYDB_DSN")
+	historyDBServer := utils.NewPostgresDB(historyDSN)
+	historyDB, err := historyDBServer.Connect(ctx)
+	if err != nil {
+		log.Printf("[Event] unable to connect to database server: %s, error: %v", historyDSN, err)
+		return
+	}
+	defer historyDB.Close()
+	log.Printf("[Event] connected to database server: %s", historyDSN)
+
 	kafkaAddr := os.Getenv("KAFKA_BROKERS")
+
+	// Adding explicit MinBytes/MaxBytes to the kafka.ReaderConfig
+	// resulted in the consumer receiving partition 0 and processing messages.
 	kafkaBrokerReader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{kafkaAddr},
-		Topic:   "tasks",
-		GroupID: "task-service",
+		Brokers:  []string{kafkaAddr},
+		Topic:    "tasks",
+		GroupID:  "task-service",
+		MinBytes: 1,
+		MaxBytes: 10e6,
 	})
+
 	kafkaBrokerWriterDLQ := kafka.Writer{
 		Addr:  kafka.TCP(kafkaAddr),
 		Topic: "tasks.dlq",
@@ -65,23 +84,33 @@ func main() {
 	postgresEPRepo := dbrepo.NewPostgresEventProcessedDBRepo(db)
 	procEventService := services.NewProcessEventService(postgresEPRepo)
 
-	postgresHSRepo := dbrepo.NewPostgresHistoryDBRepo(db)
+	postgresHSRepo := dbrepo.NewPostgresHistoryDBRepo(historyDB)
 	historyService := services.NewHistoryService(postgresHSRepo)
 
 	for {
 		msg, err := consumer.Consume(ctx)
 		if err != nil {
-			log.Fatalf("[Event] unable to consume: %v", err)
+
+			// should be done to all services accepting context and returns error
+			// future work
+			if ctx.Err() != nil {
+				log.Print("[Event] shutdown signal received")
+				break
+			}
+
+			log.Printf("[Event] unable to consume: %v", err)
+			continue
 		}
 
 		var eventTask eventmodels.EventTask
 		if err := json.Unmarshal(msg.Value, &eventTask); err != nil {
-			log.Fatalf("[Event] failed to unmarshal message event: %v", err)
+			log.Printf("[Event] failed to unmarshal message event: %v", err)
+			continue
 		}
 
 		eventProcModel, err := procEventService.GetOrCreateEventProcess(ctx, eventTask.EventPID)
 		if err != nil {
-			log.Printf("[Event] unbale to get orcreate event process model for event pid: %d with error: %v", eventProcModel.EventPID, err)
+			log.Printf("[Event] unbale to getorcreate event process model for event pid: %d with error: %v", eventTask.EventPID, err)
 			continue
 		}
 
@@ -147,5 +176,7 @@ func main() {
 		}
 
 	}
+
+	log.Print("[Event] shutting down...")
 
 }
