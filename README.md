@@ -1,207 +1,176 @@
 # droplets_mini
 
-A small event-driven Todo system built with **Go**, **NATS JetStream**, and **PostgreSQL**. It demonstrates an event-driven microservice pattern: one service produces domain events, a message broker persists and delivers them, and a separate service consumes those events to build an audit history.
+A microservices showcase built with **Go**, **Kafka**, and **PostgreSQL** following an **event driven architecture**. It demonstrates a small todo system where a REST API service produces domain events, Kafka moves them across the system, and a consumer service turns them into an queryable history.
 
-## Overview
-
-- **App service** (`app/`) — writes todos into its own PostgreSQL database and publishes a `todo.created` fat event to NATS JetStream after each insert.
-- **History service** (`history/`) — a durable JetStream consumer that reads todo events, deduplicates them by `event_id`, and stores a history row per processed event.
-- **NATS JetStream** — acts as the event bus and persistent message store.
-- **Two PostgreSQL databases** — one for the app's todos, one for the history service — plus a processed-events table used for exactly-once-style deduplication.
+This is a **showcase**, not a production-grade system. Each component is intentionally kept small so the design is easy to read and extend.
 
 ## Architecture
 
-```
-                 ┌─────────────────────────────┐
-                 │         NATS JetStream       │
-                 │      stream: "TODO"         │
-                 │   subjects: todo.created,   │
-                 │   todo.completed, ...       │
-                 └───────────┬─────────────────┘
-                             │
-        publishes todo.created (fat event)
-                             │
-┌──────────────────┐         │         ┌──────────────────────┐
-│   App service    │         │         │   History service    │
-│  ┌────────────┐  │         │         │  ┌────────────────┐  │
-│  │ todo_model │  │         └────────►│  │history_model   │  │
-│  └────────────┘  │                   │  └────────────────┘  │
-│   PostgreSQL     │                   │  │processed_event │  │
-└──────────────────┘                   │  │    _model      │  │
-                                       │  └────────────────┘  │
-                                       │   PostgreSQL         │
-                                       └──────────────────────┘
-```
-
-Flow:
-1. The app service creates a todo in `todo_model` (in a transaction).
-2. It publishes a `TodoCreatedEvent` (containing the full todo snapshot) to the `todo.created` subject on the `TODO` JetStream stream.
-3. The history service's durable consumer receives the event.
-4. It first inserts the `event_id` into `processed_event_model` (unique constraint) — a duplicate insert returns `ErrEventIDExist` and the message is simply acknowledged.
-5. On a new event ID it inserts a row into `history_model` and commits — both inserts happen in the same transaction as the message acknowledgment.
-
-## Project structure
+Services talk to each other only through **REST APIs** and **Kafka events** — no shared language or runtime coupling. Each service is **language independent** and can be rewritten in any other language (Go is used here by convenience, not constraint).
 
 ```
-droplets_mini/
-├── app/                      # Todo producer service
-│   ├── cmd/main.go           # entrypoint: connect DB/NATS, migrate, seed todos, publish events
-│   ├── internal/
-│   │   ├── models/todo.go    # Todo model
-│   │   ├── repo/todo.go      # Todo repository (transactional insert)
-│   │   └── service/          # DB service + JetStream event service
-│   ├── migrations/           # SQL migrations (todo_model table)
-│   ├── .env                  # local dev environment (host networking)
-│   └── .docker.env           # container environment (enchanted via docker-compose)
-│
-├── history/                  # Todo history consumer service
-│   ├── cmd/main.go           # entrypoint: durable consumer + history writes
-│   ├── internal/
-│   │   ├── models/           # History + ProcessedEvent models
-│   │   └── repo/             # History + ProcessedEvent repositories
-│   ├── migrations/           # SQL migrations (processed_event_model, history_model)
-│   ├── .env                  # local dev environment (host networking)
-│   └── .docker.env           # container environment
-│
-├── pkg/                      # Shared libraries
-│   ├── database/             # Postgres connect-with-retry + golang-migrate runner
-│   ├── events/               # Event models (e.g. TodoCreatedEvent)
-│   ├── stream/               # Stream name constants (TODO, HISTORY)
-│   ├── subjects/             # Subject constants (todo.created, todo.deleted, ...)
-│   └── utilities/            # NATS connect-with-retry helper
-│
-├── docker/
-│   ├── Dockerfile.app        # multi-stage build for the app service
-│   └── Dockerfile.history    # multi-stage build for the history service
-│
-├── docker-compose.*.yml      # one compose file per component
-├── Makefile                  # helper targets for networks/services
-└── go.mod                    # module: droplets_mini (Go 1.26.3)
+                        ┌────────────────────────────────────────┐
+                        │              gateway :5500             │
+                        │        (REST reverse proxy, chi)       │
+                        └───────┬────────────────────┬───────────┘
+                    /v1/todo ───┘                    └─── /v1/history
+                                │                          │
+                    ┌───────────▼─────────┐        ┌────────▼──────────┐
+                    │     todo :5501      │        │   history :5502   │
+                    │   (REST API, CRUD)  │        │   (REST API, GET) │
+                    └───────────┬─────────┘        └────────┬──────────┘
+                                │                          │
+                       publish task.created /              reads
+                       task.updated / task.deleted         history_db (Postgres)
+                                │
+                    ┌───────────▼──────────────────────────┐
+                    │              Kafka                   │
+                    │        topic: tasks / tasks.dlq      │
+                    └───────────┬──────────────────────────┘
+                                │ consume (group: task-service)
+                    ┌───────────▼─────────┐
+                    │     event (CLI)     │
+                    │  dedup / retry / DLQ│
+                    └───────────┬─────────┘
+                                │ writes history
+                                ▼
+                     history_db (Postgres)
 ```
 
-## Technologies
+1. **todo** — REST CRUD on `/tasks`; writes to its own Postgres DB and publishes a fat `EventTask` to the Kafka `tasks` topic after each create/update/delete.
+2. **event** — Kafka consumer. Deduplicates by unique `event_pid`, retries failed messages up to `MaxRetry=5`, then routes them to the `tasks.dlq` DLQ topic. Writes each processed event into the history Postgres DB.
+3. **history** — REST `GET /items` over the built-up history.
+4. **gateway** — REST reverse proxy exposing the todo and history services behind one entry point.
 
-| Component       | Technology                          |
-|-----------------|-------------------------------------|
-| Language        | Go 1.26.3                           |
-| Message broker  | NATS 2 with JetStream (`-js`)       |
-| Datastore       | PostgreSQL 16 (two databases)       |
-| Database access | `sqlx`                              |
-| Migrations      | `golang-migrate` (file source)      |
-| Env loading     | `godotenv`                          |
-| Orchestration   | Docker Compose                      |
+## Services
 
-## Messaging contract
+| Service   | Port | Type      | Role                                             | Depends on                             |
+|-----------|------|-----------|--------------------------------------------------|----------------------------------------|
+| `todo`    | 5501 | REST API  | CRUD tasks, publishes domain events to Kafka     | Postgres (`todo_db`), Kafka            |
+| `event`   | —    | CLI       | Consumes events, dedup/retry/DLQ, writes history | Postgres (`event_db`, `history_db`), Kafka |
+| `history` | 5502 | REST API  | Read-only history endpoint                       | Postgres (`history_db`)                |
+| `gateway` | 5500 | REST proxy| Reverse-proxies `/v1/todo` and `/v1/history`     | todo, history                          |
+| —         | 9092 | —         | Apache Kafka, topics `tasks` and `tasks.dlq`     | —                                      |
+| —         | —    | —         | Three Postgres 16 databases (`todo_db`, `history_db`, `event_db`) | — |
 
-**Streams** (`pkg/stream`):
-- `TODO` — created by the app service; configured with file storage and subject wildcard `todo.>`
+## Repo layout
 
-**Subjects** (`pkg/subjects`):
-- `todo.created`
-- `todo.completed`
-- `todo.updated`
-- `todo.deleted`
-- `history.requested` (defined but unused so far)
-
-**Event** (`pkg/events`): `TodoCreatedEvent` is the fat event published by the app:
-
-```json
-{
-  "event_id": 1324567890,
-  "todo_id": 1,
-  "todo_value": "Go to sleep",
-  "todo_completed": false,
-  "todo_created_at": "2026-09-13T..."
-}
+```
+droplets/
+├── docker-compose.storage.yml   # Kafka + three Postgres databases
+├── Makefile                     # one-command orchestration
+├── services/
+│   ├── todo/                    # REST API producer  (own Go module)
+│   ├── event/                   # Kafka consumer     (own Go module)
+│   ├── history/                 # REST API reader    (own Go module)
+│   └── gateway/                 # reverse proxy      (own Go module)
+└── notes.txt
 ```
 
-## Running the system
+A **monorepo is used for convenience only**. Each `services/*` directory is its own Go module with its own `Dockerfile` and migrations, so any service can be split into a separate repository without refactoring.
 
-### Prerequisites
+## Tech stack
 
-- Docker and Docker Compose
-- Go 1.26+ (only if running locally instead of in containers)
+| Component       | Technology                       |
+|-----------------|----------------------------------|
+| Language        | Go 1.26.3                        |
+| HTTP router     | `go-chi/chi`                     |
+| Message broker  | Apache Kafka (`segmentio/kafka-go`) |
+| Datastore       | PostgreSQL 16 (three databases)  |
+| Database access | `sqlx`                           |
+| Migrations      | `golang-migrate`                 |
+| Env loading     | `godotenv`                       |
+| Testing         | `go-sqlmock`                     |
+| Orchestration   | Docker + Docker Compose          |
 
-### With Docker Compose (recommended)
+## Quickstart
 
-The Makefile wires everything up. The services span three isolated networks (`event_network`, `app_network`, `history_network`), so start dependencies in this order:
+**Prerequisites:** Docker and Docker Compose. Go 1.26+ only if running outside containers.
+
+### Full stack — one terminal
 
 ```bash
-# 1. create the shared networks
-make network
-
-# 2. start NATS with JetStream      -> terminal 1
-make nats
-
-# 3. start the app's PostgreSQL     -> terminal 2
-make appdb
-
-# 4. start the history's PostgreSQL -> terminal 3
-make historydb
-
-# 5. start the app service          -> terminal 4
-make app
-
-# 6. start the history service      -> terminal 5
-make history
+make webup
 ```
 
-The app service seeds a few sample todos, inserts each into PostgreSQL, and publishes `todo.created` events to JetStream. The history service consumes those events, deduplicates them, and writes them into its own database.
+This creates the Docker networks, starts storage (Kafka + Postgres), then builds and starts all four services.
 
-Ports:
-- NATS client: `4222`, monitoring UI: `8222`
-- App PostgreSQL: `5432`
-- History PostgreSQL: `5433` (host port remapped to avoid collision with the app DB)
-
-### Tear down
+### Per-component (multi-terminal)
 
 ```bash
-make down    # stop all services and networks
-make clean   # down + no-cache rebuild + remove networks
+make webup-network      # create the shared networks
+make webup-storage      # Kafka + Postgres (terminal 1)
+make webup-todo         # terminal 2
+make webup-history      # terminal 3
+make webup-event        # terminal 4
+make webup-gateway      # terminal 5
 ```
+
+### Manage
+
+```bash
+make webstatus   # status of all compose projects
+make webdown     # stop everything
+make webclean    # down + remove local images + networks
+```
+
+**Ports:** gateway `5500`, todo `5501`, history `5502`, Kafka `9092`. Only the gateway and Kafka are exposed on the host; the rest communicate over internal Docker networks.
+
+Services are isolated across five external networks (`gateway_network`, `event_network`, `tododb_network`, `historydb_network`, `eventdb_network`) so each one only reaches what it needs.
 
 ### Running locally (without Docker)
 
-Each service loads its local `.env` file (host networking: `localhost` hostnames). You need a running NATS server (with JetStream enabled) and two PostgreSQL instances, then:
+Each service loads its local `.env` (host networking). With Kafka and Postgres running on `localhost`:
 
 ```bash
-go run ./app/cmd
-go run ./history/cmd
+go run ./cmd/web     # todo, history, gateway
+go run ./cmd/cli     # event
 ```
 
-## Database schemas
+## Usage
 
-**App DB** — `droplet_appdb`:
+```bash
+# create a task
+curl -X POST http://localhost:5500/v1/todo/tasks \
+  -d '{"value":"write a readme"}' -H 'Content-Type: application/json'
 
-```sql
-CREATE TABLE todo_model (
-    id BIGSERIAL PRIMARY KEY,
-    value TEXT NOT NULL,
-    completed BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+# list tasks
+curl http://localhost:5500/v1/todo/tasks
+
+# read the event history
+curl http://localhost:5500/v1/history/items
 ```
 
-**History DB** — `droplet_historydb`:
+Create a task, then `curl /v1/history/items` shortly after — the `task.created` event should appear once, even if the message was redelivered.
 
-```sql
-CREATE TABLE processed_event_model (
-    id BIGSERIAL PRIMARY KEY,
-    event_id BIGINT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT processed_event_model_eventid_unique UNIQUE (event_id)
-);
+## Event contract
 
-CREATE TABLE history_model (
-    id BIGSERIAL PRIMARY KEY,
-    event TEXT NOT NULL,
-    todo_value TEXT NOT NULL,
-    todo_id BIGINT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+```json
+{
+  "event_type": "task.created",
+  "event_pid": 1767381204128391000,
+  "event_created_at": "2026-09-21T...",
+  "task_id": 1,
+  "task_value": "write a readme",
+  "task_pid": 1817643920171900000,
+  "task_completed": false,
+  "task_created_at": "2026-09-21T..."
+}
 ```
 
-## Notes
+- Event types: `task.created`, `task.updated`, `task.deleted` (fat events carrying the full task snapshot).
+- Each event carries a unique `event_pid`; the consumer deduplicates on it (`event_processed_model` unique constraint).
+- Failed messages retry up to `MaxRetry=5`, then go to the `tasks.dlq` topic.
 
-- The history service currently implements full handling only for `todo.created`; `todo.completed`, `todo.deleted`, and `todo.updated` are acknowledged via a dummy handler.
-- Event deduplication relies on the `UNIQUE (event_id)` constraint in `processed_event_model`, so replays or redeliveries (NATS `MaxDeliver: 5`) do not create duplicate history rows.
+## Limitations
+
+- **Showcase, not production:** IDs are generated with `time.Now().UnixNano()`, so pid collision is possible at scale.
+- **Outbox gap:** the todo service publishes to Kafka before committing its DB transaction, so a crash in between leaves an event without a DB row.
+- **Offset-commit timing:** DLQ routing commits offsets before the dedup edge cases are fully resolved, which can duplicate under rare failure windows.
+
+## Testing
+
+```bash
+cd services/todo && go test ./...
+cd services/history && go test ./...
+```
