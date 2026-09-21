@@ -21,7 +21,7 @@ func NewKafkaBroker(w *kafka.Writer, r *kafka.Reader) *KafkaBroker {
 	}
 }
 
-func (b *KafkaBroker) Produce(ctx context.Context, eventModel eventmodels.TaskEvent, key []byte) error {
+func (b *KafkaBroker) Produce(ctx context.Context, eventModel eventmodels.EventTask, key []byte) error {
 	data, err := json.Marshal(eventModel)
 	if err != nil {
 		return err

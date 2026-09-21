@@ -6,7 +6,7 @@ import (
 )
 
 type Broker interface {
-	Produce(ctx context.Context, eventModel eventmodels.TaskEvent, key []byte) error
+	Produce(ctx context.Context, eventModel eventmodels.EventTask, key []byte) error
 	Consume() error
 	CloseProcuder() error
 	CloseConsumer() error

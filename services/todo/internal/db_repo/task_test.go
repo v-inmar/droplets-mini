@@ -19,7 +19,7 @@ func TestPostgresTaskDBRepo_CreateTx(t *testing.T) {
 	expectedError := errors.New("db error")
 	expectedOutput := dbmodels.TaskModel{
 		ID:        1,
-		PID:       "tpid123",
+		PID:       12345,
 		Value:     "task1",
 		Completed: false,
 		CreatedAt: time.Now().UTC(),
@@ -109,7 +109,7 @@ func TestPostgresTaskDBRepo_CreateTx(t *testing.T) {
 }
 
 func TestPostgresTaskDBRepo_ReadByPID(t *testing.T) {
-	testPID := "tpid123"
+	var testPID int64 = 12345
 	testTask := dbmodels.TaskModel{
 		ID:        1,
 		PID:       testPID,
@@ -121,7 +121,7 @@ func TestPostgresTaskDBRepo_ReadByPID(t *testing.T) {
 	testCases := []struct {
 		name          string
 		setupMock     func(mock sqlmock.Sqlmock)
-		inputPID      string
+		inputPID      int64
 		expectedData  *dbmodels.TaskModel
 		expectedError error
 	}{
@@ -140,10 +140,10 @@ func TestPostgresTaskDBRepo_ReadByPID(t *testing.T) {
 		},
 		{
 			name:     "not found",
-			inputPID: "123123",
+			inputPID: 123123,
 			setupMock: func(mock sqlmock.Sqlmock) {
 
-				mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM task_model WHERE pid=$1`)).WithArgs("123123").WillReturnError(sql.ErrNoRows)
+				mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM task_model WHERE pid=$1`)).WithArgs(123123).WillReturnError(sql.ErrNoRows)
 			},
 			expectedData:  nil,
 			expectedError: sql.ErrNoRows,
@@ -193,7 +193,7 @@ func TestPostgresTaskDBRepo_ReadAll(t *testing.T) {
 	errDB := errors.New("database error")
 	testTask := dbmodels.TaskModel{
 		ID:        1,
-		PID:       "tpid123",
+		PID:       123456789,
 		Value:     "task1",
 		Completed: false,
 		CreatedAt: time.Now().UTC(),
@@ -296,7 +296,7 @@ func TestPostgresTaskDBRepo_UpdateTx(t *testing.T) {
 
 	expectedOutput := dbmodels.TaskModel{
 		ID:        1,
-		PID:       "tpid123",
+		PID:       123456789,
 		Value:     "task1_updated",
 		Completed: true,
 		CreatedAt: time.Now().UTC(),
@@ -403,10 +403,10 @@ func TestPostgresTaskDBRepo_UpdateTx(t *testing.T) {
 */
 func TestPostgresTaskDBRepo_DeleteTx(t *testing.T) {
 	expectedError := errors.New("db error")
-	testPID := "tpid123"
+	var testPID int64 = 123456789
 	testCases := []struct {
 		name          string
-		pid           string
+		pid           int64
 		setupMock     func(mock sqlmock.Sqlmock)
 		expectedError error
 	}{

@@ -7,14 +7,14 @@ type CreateRequest struct {
 }
 
 type CreateResponse struct {
-	PID       string    `json:"pid"`
+	PID       int64     `json:"pid"`
 	Value     string    `json:"value"`
 	CreatedAt time.Time `json:"created_at"`
 	Completed bool      `json:"completed"`
 }
 
 type GetTaskResponse struct {
-	PID       string    `json:"pid"`
+	PID       int64     `json:"pid"`
 	Value     string    `json:"value"`
 	CreatedAt time.Time `json:"created_at"`
 	Completed bool      `json:"completed"`
@@ -30,7 +30,7 @@ type UpdateRequest struct {
 }
 
 type UpdateResponse struct {
-	PID       string    `json:"pid"`
+	PID       int64     `json:"pid"`
 	Value     string    `json:"value"`
 	CreatedAt time.Time `json:"created_at"`
 	Completed bool      `json:"completed"`

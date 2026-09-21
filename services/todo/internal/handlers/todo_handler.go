@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -110,7 +111,22 @@ func (h *TodoHandler) GetAllTaskHandler(w http.ResponseWriter, r *http.Request) 
 func (h *TodoHandler) PutUpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	pidParam := chi.URLParam(r, "pid")
 
-	task, err := h.srvc.ReadTaskByPID(r.Context(), pidParam)
+	pidParamNum, err := strconv.ParseInt(pidParam, 10, 64)
+	if err != nil {
+		body := dtomodels.ErrorResponse{
+			Message: fmt.Sprintf("task with pid %s not found", pidParam),
+			Status:  http.StatusNotFound,
+		}
+
+		if err := utils.ResponseJSON(w, body, http.StatusNotFound, nil); err != nil {
+			log.Printf("[Todo] pid conversion to int64 error response: %v", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	task, err := h.srvc.ReadTaskByPID(r.Context(), pidParamNum)
 	if err != nil && errors.Is(err, sql.ErrNoRows) {
 		body := dtomodels.ErrorResponse{
 			Message: fmt.Sprintf("task with pid %s not found", pidParam),
@@ -197,8 +213,22 @@ func (h *TodoHandler) PutUpdateTaskHandler(w http.ResponseWriter, r *http.Reques
 
 func (h *TodoHandler) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	pidParam := chi.URLParam(r, "pid")
+	pidParamNum, err := strconv.ParseInt(pidParam, 10, 64)
+	if err != nil {
+		body := dtomodels.ErrorResponse{
+			Message: fmt.Sprintf("task with pid %s not found", pidParam),
+			Status:  http.StatusNotFound,
+		}
 
-	task, err := h.srvc.ReadTaskByPIDModel(r.Context(), pidParam)
+		if err := utils.ResponseJSON(w, body, http.StatusNotFound, nil); err != nil {
+			log.Printf("[Todo] pid conversion to int64 error response: %v", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	task, err := h.srvc.ReadTaskByPIDModel(r.Context(), pidParamNum)
 	if err != nil && errors.Is(err, sql.ErrNoRows) {
 		body := dtomodels.ErrorResponse{
 			Message: fmt.Sprintf("task with pid %s not found", pidParam),

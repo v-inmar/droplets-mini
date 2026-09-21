@@ -8,11 +8,11 @@ import (
 )
 
 type TaskRepo interface {
-	CreateTx(ctx context.Context, tx *sqlx.Tx, value, pid string) (*dbmodels.TaskModel, error)
+	CreateTx(ctx context.Context, tx *sqlx.Tx, value string, pid int64) (*dbmodels.TaskModel, error)
 	ReadAll(ctx context.Context) ([]dbmodels.TaskModel, error)
-	ReadByPID(ctx context.Context, pid string) (*dbmodels.TaskModel, error)
-	UpdateTx(ctx context.Context, tx *sqlx.Tx, value, pid string, completed bool) (*dbmodels.TaskModel, error)
-	DeleteTx(ctx context.Context, tx *sqlx.Tx, pid string) error
+	ReadByPID(ctx context.Context, pid int64) (*dbmodels.TaskModel, error)
+	UpdateTx(ctx context.Context, tx *sqlx.Tx, value string, pid int64, completed bool) (*dbmodels.TaskModel, error)
+	DeleteTx(ctx context.Context, tx *sqlx.Tx, pid int64) error
 	GetDBInstance() *sqlx.DB
 }
 
@@ -30,7 +30,7 @@ func (r *PostgresTaskDBRepo) GetDBInstance() *sqlx.DB {
 	return r.db
 }
 
-func (r *PostgresTaskDBRepo) CreateTx(ctx context.Context, tx *sqlx.Tx, value, pid string) (*dbmodels.TaskModel, error) {
+func (r *PostgresTaskDBRepo) CreateTx(ctx context.Context, tx *sqlx.Tx, value string, pid int64) (*dbmodels.TaskModel, error) {
 	query := `
 	INSERT INTO task_model (value, pid)
 	VALUES ($1, $2)
@@ -59,7 +59,7 @@ func (r *PostgresTaskDBRepo) ReadAll(ctx context.Context) ([]dbmodels.TaskModel,
 	return tasks, nil
 }
 
-func (r *PostgresTaskDBRepo) ReadByPID(ctx context.Context, pid string) (*dbmodels.TaskModel, error) {
+func (r *PostgresTaskDBRepo) ReadByPID(ctx context.Context, pid int64) (*dbmodels.TaskModel, error) {
 	query := `
 	SELECT * FROM task_model
 	WHERE pid=$1
@@ -72,7 +72,7 @@ func (r *PostgresTaskDBRepo) ReadByPID(ctx context.Context, pid string) (*dbmode
 	return &task, nil
 }
 
-func (r *PostgresTaskDBRepo) UpdateTx(ctx context.Context, tx *sqlx.Tx, value, pid string, completed bool) (*dbmodels.TaskModel, error) {
+func (r *PostgresTaskDBRepo) UpdateTx(ctx context.Context, tx *sqlx.Tx, value string, pid int64, completed bool) (*dbmodels.TaskModel, error) {
 	query := `
 	UPDATE task_model
 	SET value=$1, completed=$2
@@ -88,7 +88,7 @@ func (r *PostgresTaskDBRepo) UpdateTx(ctx context.Context, tx *sqlx.Tx, value, p
 	return &task, nil
 }
 
-func (r *PostgresTaskDBRepo) DeleteTx(ctx context.Context, tx *sqlx.Tx, pid string) error {
+func (r *PostgresTaskDBRepo) DeleteTx(ctx context.Context, tx *sqlx.Tx, pid int64) error {
 	query := `
 	DELETE FROM task_model
 	WHERE pid=$1
