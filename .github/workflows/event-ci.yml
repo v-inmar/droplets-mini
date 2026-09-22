@@ -12,19 +12,19 @@ jobs:
   test:
     runs-on: ubuntu-latest
   
-  steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: "1.26.3"
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.3"
+        
+      - name: Run tests
+        working-directory: services/event
+        run: go test ./...
       
-    - name: Run tests
-      working-directory: services/event
-      run: go test ./...
-    
-    - name: Build
-      working-directory: services/event
-      run: go build ./...
+      - name: Build
+        working-directory: services/event
+        run: go build ./...
