@@ -2,9 +2,13 @@ name: Event CI
 
 on:
   push:
+    branches:
+      - main
     paths:
       - "services/event/**"
   pull_request:
+    branches:
+      - main
     paths:
       - "services/event/**"
 

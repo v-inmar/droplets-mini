@@ -2,9 +2,13 @@ name: Todo CI
 
 on:
   push:
+    branches:
+      - main
     paths:
       - "services/todo/**"
   pull_request:
+    branches:
+      - main
     paths:
       - "services/todo/**"
 

@@ -2,9 +2,13 @@ name: History CI
 
 on:
   push:
+    branches:
+      - main
     paths:
       - "services/history/**"
   pull_request:
+    branches:
+      - main
     paths:
       - "services/history/**"
 

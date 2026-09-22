@@ -2,9 +2,13 @@ name: Gateway CI
 
 on:
   push:
+    branches:
+      - main
     paths:
       - "services/gateway/**"
   pull_request:
+    branches:
+      - main
     paths:
       - "services/gateway/**"
 
