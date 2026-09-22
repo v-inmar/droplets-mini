@@ -29,7 +29,7 @@ func main() {
 	defer db.Close()
 	log.Printf("[History] connected to database\n")
 
-	// ----- migrate ---------- //
+	// ------- migrate ---------- //
 	log.Printf("[History] migrating database models")
 	pm := utils.NewPostgresMigrate("file://migrations", os.Getenv("DSN"))
 	if err := pm.Run(); err != nil {
