@@ -40,7 +40,7 @@ func main() {
 	if err != nil {
 		log.Printf("[Gateway] history service error: %v", err)
 	} else {
-		serviceCheck(ctx, history, "history")
+		serviceCheck(ctx, history, "history") // check service it running
 		historyProxy := httputil.NewSingleHostReverseProxy(historyURL)
 		proxyRoute(router, "/v1/history", historyProxy)
 	}
