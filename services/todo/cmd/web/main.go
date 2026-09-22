@@ -48,7 +48,7 @@ func main() {
 	)
 	router.Get("/health", healthHandler.GetHealthHandler)
 
-	// kafka settings
+	// kafka settings for writer
 	kafkaBrokerWriter := kafka.Writer{
 		Addr:  kafka.TCP(os.Getenv("KAFKA_BROKERS")),
 		Topic: "tasks",
