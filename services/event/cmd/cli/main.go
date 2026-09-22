@@ -123,6 +123,7 @@ func main() {
 		}
 
 		// retry already reached
+		// uses a constant to match retry limit
 		if eventProcModel.EventRetry >= utils.MaxRetry {
 			// publish in dlq
 			// if this publish fails, it will retry
